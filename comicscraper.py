@@ -1,4 +1,4 @@
-import requests, os, re, logging, shelve, threading, math
+import requests, os, re, logging, shelve, threading, math, sys
 from bs4 import BeautifulSoup
 from os import path
 from dataclasses import dataclass
@@ -63,7 +63,7 @@ class ComicScraper(ABC):
 		""" return true if given ComicPage is the last page -- used to figure out when to stop when no stop page is given """
 		return page.next_page_url is None
 
-	def reset(self):
+	def clear_db(self):
 		"""
 		clears the shelved comic pages
 		"""
@@ -79,6 +79,7 @@ class ComicScraper(ABC):
 		stop (int): download this page and stop
 		comic (Comic): comic prepopulated with page info
 		"""
+		self.logger.info('\n\n============ START SCRAPE ============\n')
 		if stop is None:
 			self.logger.info(f'starting scrape of ALL pages')
 		else:
@@ -118,13 +119,12 @@ class ComicScraper(ABC):
 				page.next_page_url = self.get_next_comic_url(soup, current_page_number)
 				page.image_url = self.get_image_url(soup, current_page_number)
 				page.name = self.get_page_name(soup, current_page_number)
+				comic.addpage(page)
 				if page.next_page_url is None:
 					self.logger.warning(f'could not find next page url in page {current_page_number}')
 				if stop is None and self.is_last_page(page) :
 					self.logger.debug(f'found last page {current_page_number}')
 					break
-
-				comic.addpage(page)
 
 		self.logger.debug('comic page download complete - downloading images')
 
@@ -161,14 +161,18 @@ class ComicScraper(ABC):
 			url = f'http://{url}'
 
 		# download page
-		resp = requests.get(url)
-		if not resp.ok:
-			self.logger.warning(f'invalid response {resp.status_code}')
-			return None
+		try:
+			resp = requests.get(url)
+			if not resp.ok:
+				self.logger.warning(f'invalid response {resp.status_code}')
+				return None
 
-		# return the soup
-		self.logger.debug(f'comic successfully downloaded')
-		return BeautifulSoup(resp.content, 'lxml')
+			# return the soup
+			self.logger.debug(f'comic successfully downloaded')
+			return BeautifulSoup(resp.content, 'lxml')
+		except:
+			self.logger.warn(f'error downloading {url} {sys.exc_info()[0]}')
+			return None
 
 	def _download_image(self, page_number, comic):
 		self.logger.debug(f'downloading image for page {page_number}')
