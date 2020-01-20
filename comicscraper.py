@@ -17,7 +17,7 @@ class ComicScraper(ABC):
 
 	def __init__(self):
 		self.logger = logging.getLogger(__name__)
-
+		self.headers = {'User-Agent': 'Mozilla/5.0'}
 		self.num_threads = 20
 		self.db = shelve.open('comic_scraper')
 
@@ -162,9 +162,10 @@ class ComicScraper(ABC):
 
 		# download page
 		try:
-			resp = requests.get(url)
+			resp = requests.get(url, headers=self.headers)
 			if not resp.ok:
 				self.logger.warning(f'invalid response {resp.status_code}')
+				self.logger.debug(f'body: {resp.content}')
 				return None
 
 			# return the soup
@@ -199,7 +200,7 @@ class ComicScraper(ABC):
 				else:
 					page.image_url = f'http:{page.image_url}'
 
-			resp = requests.get(page.image_url)
+			resp = requests.get(page.image_url, headers=self.headers)
 			if resp.ok:
 				with open(image_path, 'wb') as f:
 					self.logger.debug(f'saving to {image_path}')
